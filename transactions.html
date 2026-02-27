@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Sales & Disposal{% endblock %}
+{% block content %}
+<div class="page-title">💼 Sales & Disposal Register</div>
+
+{% set approved_sales = transactions|selectattr("approval_status","equalto","approved")|selectattr("tx_type","equalto","Sale")|list %}
+{% set total_sale_price = approved_sales|sum(attribute="sale_price") %}
+
+<div class="metrics">
+  <div class="metric"><div class="metric-value">{{ transactions|length }}</div><div class="metric-label">Total Transactions</div></div>
+  <div class="metric"><div class="metric-value">{{ transactions|selectattr("approval_status","equalto","pending")|list|length }}</div><div class="metric-label">Pending Approval</div></div>
+  <div class="metric"><div class="metric-value">{{ approved_sales|length }}</div><div class="metric-label">Approved Sales</div></div>
+  <div class="metric green"><div class="metric-value">€{{ "{:,.0f}".format(total_sale_price) }}</div><div class="metric-label">Total Sale Revenue</div></div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Asset ID</th><th>Serial #</th><th>Name</th><th>Type</th>
+        <th>Tx Type</th><th>Date</th><th>Book Value at Tx</th>
+        <th>Sale Price</th><th>Gain / Loss</th>
+        <th>Buyer</th><th>Invoice Ref</th><th>Approval</th><th>Approved By</th>
+      </tr></thead>
+      <tbody>
+      {% for t in transactions %}
+      {% set gl = (t.sale_price or 0) - (t.book_value_at_tx or 0) %}
+      <tr style="{% if t.approval_status=='pending' %}background:#FFFBEB!important;{% elif t.approval_status=='rejected' %}background:#FFF1F2!important;{% endif %}">
+        <td><a href="/assets/{{ t.asset_id }}" style="color:#1F7BC1;font-weight:600;text-decoration:none;">{{ t.asset_id }}</a></td>
+        <td style="font-family:monospace;font-size:11px;">{{ t.serial_number }}</td>
+        <td style="white-space:nowrap;font-size:13px;">{{ t.asset_name }}</td>
+        <td><span class="badge {% if t.asset_type=='Demo Unit' %}badge-demo{% elif t.asset_type=='AD Device' %}badge-it{% elif t.asset_type=='Laptop' %}badge-laptop{% else %}badge-display{% endif %}">{{ t.asset_type }}</span></td>
+        <td><span class="badge {% if t.tx_type=='Sale' %}badge-customer{% elif t.tx_type=='Disposal' %}badge-disposed{% else %}badge-sold{% endif %}">{{ t.tx_type }}</span></td>
+        <td style="font-size:12px;">{{ t.tx_date }}</td>
+        <td style="font-weight:600;">€{{ "{:,.2f}".format(t.book_value_at_tx or 0) }}</td>
+        <td>{% if t.sale_price %}€{{ "{:,.2f}".format(t.sale_price) }}{% else %}<span style="color:#CBD5E1;">—</span>{% endif %}</td>
+        <td>
+          {% if t.tx_type=='Sale' %}
+            <span class="{{ 'gain' if gl >= 0 else 'loss' }}">{{ '+' if gl >= 0 else '' }}€{{ "{:,.2f}".format(gl) }}</span>
+          {% else %}<span style="color:#CBD5E1;font-size:12px;">N/A</span>{% endif %}
+        </td>
+        <td style="font-size:13px;">{{ t.buyer or '—' }}</td>
+        <td style="font-size:12px;color:#64748B;">{{ t.invoice_ref or '—' }}</td>
+        <td>
+          {% if t.approval_status == 'pending' %}
+            <span class="badge" style="background:#FEF3C7;color:#D97706;">⏳ Pending</span>
+          {% elif t.approval_status == 'approved' %}
+            <span class="badge badge-active">✅ Approved</span>
+          {% elif t.approval_status == 'rejected' %}
+            <span class="badge badge-disposed" title="{{ t.reject_reason }}">❌ Rejected</span>
+          {% endif %}
+        </td>
+        <td style="font-size:12px;color:#94A3B8;">{{ t.approved_by or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="13" style="text-align:center;color:#94A3B8;padding:32px;">No sales or disposals recorded yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

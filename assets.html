@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Assets{% endblock %}
+{% block content %}
+<div class="page-title">📦 Asset Register
+  <a href="/assets/new" class="btn btn-primary btn-sm">+ Add Asset</a>
+</div>
+
+<div class="card">
+  <form method="get" class="search-bar">
+    <input name="q" value="{{ q }}" placeholder="🔍 Search by ID, serial, name, model…">
+    <select name="type"><option value="">All Types</option>{% for t in asset_types %}<option value="{{ t }}" {% if f_type==t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+    <select name="status"><option value="">All Statuses</option>{% for s in statuses %}<option value="{{ s }}" {% if f_status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+    <select name="location"><option value="">All Locations</option>{% for l in locations %}<option value="{{ l }}" {% if f_loc==l %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+    <a href="/assets" class="btn btn-secondary btn-sm">Clear</a>
+    <div style="flex:1;"></div>
+    <a href="/export/assets/xlsx" class="btn btn-export btn-sm">⬇ Export Excel</a>
+    <a href="/export/assets/csv"  class="btn btn-export btn-sm">⬇ Export CSV</a>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Asset ID</th><th>Serial Number</th><th>Name</th><th>Type</th><th>Model</th>
+        <th>Purchase Date</th><th>Purchase Value</th><th>Location</th><th>Status</th>
+        <th>Book Value</th><th>Monthly Dep.</th><th>Responsible</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for a in assets %}
+      <tr>
+        <td><a href="/assets/{{ a.asset_id }}" style="color:#1F7BC1;font-weight:600;text-decoration:none;">{{ a.asset_id }}</a></td>
+        <td style="font-family:monospace;font-size:12px;">{{ a.serial_number }}</td>
+        <td style="white-space:nowrap;">{{ a.asset_name }}</td>
+        <td><span class="badge {% if a.asset_type=='Demo Unit' %}badge-demo{% elif a.asset_type=='AD Device' %}badge-it{% elif a.asset_type=='Laptop' %}badge-laptop{% else %}badge-display{% endif %}">{{ a.asset_type }}</span></td>
+        <td style="font-size:12px;color:#64748B;">{{ a.model }}</td>
+        <td style="font-size:12px;">{{ a.purchase_date }}</td>
+        <td>€{{ "{:,.2f}".format(a.purchase_value or 0) }}</td>
+        <td style="font-size:12px;">{{ a.current_location }}</td>
+        <td><span class="badge {% if a.status=='Active' %}badge-active{% elif a.status=='With Customer' %}badge-customer{% elif a.status=='In Storage' %}badge-storage{% elif a.status=='In Transit' %}badge-transit{% elif a.status=='Sold' %}badge-sold{% elif a.status=='Disposed' %}badge-disposed{% else %}badge-repair{% endif %}">{{ a.status }}</span></td>
+        <td style="font-weight:600;color:#16A34A;">€{{ "{:,.2f}".format(a.book_value) }}</td>
+        <td style="color:#D97706;font-size:12px;">€{{ "{:,.2f}".format(a.monthly) }}/mo</td>
+        <td style="font-size:12px;color:#64748B;">{{ a.responsible }}</td>
+        <td><a href="/assets/{{ a.asset_id }}/edit" class="btn btn-secondary btn-sm">Edit</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="13" style="text-align:center;color:#94A3B8;padding:32px;">No assets found.</td></tr>
+      {% endfor %}
+      </tbody>
+      {% if assets %}
+      <tfoot><tr class="tfoot">
+        <td colspan="6" style="text-align:right;font-size:12px;">TOTALS</td>
+        <td>€{{ "{:,.2f}".format(assets|sum(attribute='purchase_value')) }}</td>
+        <td colspan="2"></td>
+        <td>€{{ "{:,.2f}".format(assets|sum(attribute='book_value')) }}</td>
+        <td>€{{ "{:,.2f}".format(assets|sum(attribute='monthly')) }}/mo</td>
+        <td colspan="2"></td>
+      </tr></tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Depreciation{% endblock %}
+{% block content %}
+<div class="page-title">📉 Depreciation Schedule</div>
+
+<div class="metrics">
+  <div class="metric amber"><div class="metric-value">€{{ "{:,.0f}".format(total_purchase) }}</div><div class="metric-label">Total Purchase Value</div></div>
+  <div class="metric green"><div class="metric-value">€{{ "{:,.0f}".format(total_book) }}</div><div class="metric-label">Total Book Value</div></div>
+  <div class="metric red"><div class="metric-value">€{{ "{:,.0f}".format(total_monthly) }}</div><div class="metric-label">Total Monthly Depreciation</div></div>
+  <div class="metric"><div class="metric-value">€{{ "{:,.0f}".format(total_purchase - total_book) }}</div><div class="metric-label">Total Accumulated</div></div>
+</div>
+
+<div class="card">
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+    <form method="get" style="display:flex;gap:10px;align-items:center;">
+      <select name="type" onchange="this.form.submit()" style="padding:8px 12px;border:1px solid #CBD5E1;border-radius:7px;font-size:13px;">
+        <option value="">All Asset Types</option>
+        {% for t in asset_types %}<option value="{{ t }}" {{ 'selected' if f_type==t }}>{{ t }}</option>{% endfor %}
+      </select>
+    </form>
+    <div style="font-size:12px;color:#64748B;padding:6px 10px;background:#EBF4FB;border-radius:6px;">
+      💡 Click the months value in any row to edit it inline
+    </div>
+    <div style="flex:1;"></div>
+    <a href="/export/depreciation/xlsx" class="btn btn-export btn-sm">⬇ Export Report</a>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Asset ID</th><th>Serial Number</th><th>Name</th><th>Type</th>
+        <th>Purchase Date</th><th>Purchase Value</th><th>Method</th>
+        <th>Useful Life</th><th>Months Elapsed</th>
+        <th>Monthly Dep.</th><th>Accumulated</th><th>Book Value</th><th>% Dep.</th><th>Status</th>
+      </tr></thead>
+      <tbody>
+      {% for a in assets %}
+      {% set dep_pct = ((a.purchase_value|float - a.book_value|float) / a.purchase_value|float * 100) if a.purchase_value else 0 %}
+      <tr>
+        <td><a href="/assets/{{ a.asset_id }}" style="color:#1F7BC1;font-weight:600;text-decoration:none;">{{ a.asset_id }}</a></td>
+        <td style="font-family:monospace;font-size:11px;">{{ a.serial_number }}</td>
+        <td style="white-space:nowrap;">{{ a.asset_name }}</td>
+        <td><span class="badge {% if a.asset_type=='Demo Unit' %}badge-demo{% elif a.asset_type=='AD Device' %}badge-it{% elif a.asset_type=='Laptop' %}badge-laptop{% else %}badge-display{% endif %}">{{ a.asset_type }}</span></td>
+        <td style="font-size:12px;">{{ a.purchase_date }}</td>
+        <td>€{{ "{:,.2f}".format(a.purchase_value or 0) }}</td>
+        <td style="font-size:12px;">{{ a.dep_method }}</td>
+
+        {# ── Inline editable useful life ── #}
+        <td>
+          <div class="life-display" id="disp-{{ a.asset_id }}"
+               onclick="startEdit('{{ a.asset_id }}', {{ a.useful_life_months }})"
+               title="Click to edit"
+               style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;background:#EBF4FB;border:1px dashed #93C5FD;font-weight:600;color:#1F7BC1;font-size:13px;user-select:none;">
+            {{ a.useful_life_months }}<span style="font-size:10px;font-weight:normal;color:#64748B;">mo</span>
+            <span style="font-size:10px;color:#93C5FD;">✏️</span>
+          </div>
+          <form method="post" action="/assets/{{ a.asset_id }}/update-life"
+                id="form-{{ a.asset_id }}" style="display:none;">
+            <div style="display:flex;gap:4px;align-items:center;">
+              <input type="number" name="useful_life_months" id="inp-{{ a.asset_id }}"
+                     value="{{ a.useful_life_months }}" min="1" max="600"
+                     style="width:64px;padding:4px 6px;border:1.5px solid #1F7BC1;border-radius:5px;font-size:13px;font-weight:600;"
+                     onkeydown="handleKey(event, '{{ a.asset_id }}')">
+              <span style="font-size:11px;color:#64748B;">mo</span>
+              <button type="submit" style="padding:3px 8px;background:#16A34A;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;">✓</button>
+              <button type="button" onclick="cancelEdit('{{ a.asset_id }}')"
+                      style="padding:3px 8px;background:#E2E8F0;color:#475569;border:none;border-radius:5px;cursor:pointer;font-size:12px;">✕</button>
+            </div>
+          </form>
+        </td>
+
+        <td style="text-align:center;color:#64748B;">{{ a.months_elapsed }}mo</td>
+        <td style="color:#D97706;font-weight:600;">€{{ "{:,.2f}".format(a.monthly) }}</td>
+        <td style="color:#DC2626;">€{{ "{:,.2f}".format(a.accumulated) }}</td>
+        <td style="color:#16A34A;font-weight:bold;">€{{ "{:,.2f}".format(a.book_value) }}</td>
+        <td style="width:110px;">
+          <div style="font-size:11px;color:#64748B;margin-bottom:3px;">{{ "{:.1f}".format(dep_pct) }}%</div>
+          <div class="dep-bar-wrap"><div class="dep-bar {% if dep_pct>80 %}danger{% elif dep_pct>50 %}warn{% endif %}" style="width:{{ [dep_pct,100]|min }}%;"></div></div>
+        </td>
+        <td>{% if a.fully_dep %}<span class="badge badge-sold">✅ Done</span>{% else %}<span class="badge badge-active">Active</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+      <tfoot><tr class="tfoot">
+        <td colspan="5" style="text-align:right;font-size:12px;">TOTALS</td>
+        <td>€{{ "{:,.2f}".format(total_purchase) }}</td>
+        <td colspan="3"></td>
+        <td style="color:#D97706;">€{{ "{:,.2f}".format(total_monthly) }}</td>
+        <td style="color:#DC2626;">€{{ "{:,.2f}".format(total_purchase - total_book) }}</td>
+        <td style="color:#16A34A;">€{{ "{:,.2f}".format(total_book) }}</td>
+        <td colspan="2"></td>
+      </tr></tfoot>
+    </table>
+  </div>
+</div>
+
+<script>
+function startEdit(assetId, currentVal) {
+  document.getElementById('disp-' + assetId).style.display = 'none';
+  document.getElementById('form-' + assetId).style.display = 'block';
+  const inp = document.getElementById('inp-' + assetId);
+  inp.value = currentVal;
+  inp.focus(); inp.select();
+}
+function cancelEdit(assetId) {
+  document.getElementById('form-' + assetId).style.display = 'none';
+  document.getElementById('disp-' + assetId).style.display = 'inline-flex';
+}
+function handleKey(e, assetId) {
+  if (e.key === 'Escape') cancelEdit(assetId);
+  if (e.key === 'Enter') e.target.closest('form').submit();
+}
+</script>
+{% endblock %}
