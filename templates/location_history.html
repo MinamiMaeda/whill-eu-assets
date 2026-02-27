@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Location History{% endblock %}
+{% block content %}
+<div class="page-title">📍 Location History <span class="sub">Full movement log — all assets</span></div>
+
+<div class="card">
+  <form method="get" class="search-bar" style="margin-bottom:16px;">
+    <input name="q" value="{{ q }}" placeholder="🔍 Search by asset ID, location, customer…">
+    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+    <a href="/location-history" class="btn btn-secondary btn-sm">Clear</a>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Asset ID</th><th>Asset Name</th><th>Type</th>
+        <th>Date From</th><th>Date To</th><th>Location</th><th>Country</th>
+        <th>Customer / Contact</th><th>Purpose</th><th>Shipped By</th><th>Notes</th><th>Logged By</th>
+      </tr></thead>
+      <tbody>
+      {% for h in history %}
+      <tr>
+        <td><a href="/assets/{{ h.asset_id }}" style="color:#1F7BC1;font-weight:600;text-decoration:none;">{{ h.asset_id }}</a></td>
+        <td style="white-space:nowrap;font-size:13px;">{{ h.asset_name }}</td>
+        <td><span class="badge {% if h.asset_type=='Demo Unit' %}badge-demo{% elif h.asset_type=='AD Device' %}badge-it{% elif h.asset_type=='Laptop' %}badge-laptop{% else %}badge-display{% endif %}">{{ h.asset_type }}</span></td>
+        <td style="font-size:12px;">{{ h.date_from or '—' }}</td>
+        <td style="font-size:12px;">{{ h.date_to or '<span style="color:#16A34A;font-weight:600;">Now</span>'|safe }}</td>
+        <td style="font-weight:500;">{{ h.location }}</td>
+        <td style="font-size:12px;color:#64748B;">{{ h.country }}</td>
+        <td>{{ h.customer }}</td>
+        <td style="font-size:12px;">{{ h.purpose }}</td>
+        <td style="font-size:12px;color:#64748B;">{{ h.shipped_by }}</td>
+        <td style="font-size:12px;color:#64748B;">{{ h.notes }}</td>
+        <td style="font-size:12px;color:#94A3B8;">{{ h.created_by }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="12" style="text-align:center;color:#94A3B8;padding:32px;">No location records found.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

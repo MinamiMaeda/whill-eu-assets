@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — WHILL Assets{% endblock %}
+{% block content %}
+<div class="page-title">📊 Dashboard <span class="sub">{{ today }}</span>
+  {% if is_approver and (pending_assets or pending_txns) %}
+    <span style="background:#DC2626;color:#fff;font-size:12px;font-weight:bold;padding:3px 10px;border-radius:20px;margin-left:8px;">
+      {{ (pending_assets|length) + (pending_txns|length) }} pending
+    </span>
+  {% endif %}
+</div>
+
+{# ── APPROVALS PANEL (visible to all, actions for Yuki & Lo only) ── #}
+{% if pending_assets or pending_txns %}
+<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:24px;overflow:hidden;border:2px solid #FCA5A5;">
+  <div style="background:#DC2626;padding:12px 20px;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:16px;">🔔</span>
+    <span style="color:#fff;font-weight:bold;font-size:14px;">
+      Pending Approvals — {% if is_approver %}Action Required{% else %}Awaiting Yuki / Lo{% endif %}
+    </span>
+    <span style="background:rgba(255,255,255,.25);color:#fff;font-size:12px;font-weight:bold;padding:2px 9px;border-radius:20px;">
+      {{ (pending_assets|length) + (pending_txns|length) }} item(s)
+    </span>
+  </div>
+
+  {% if pending_assets %}
+  <div style="padding:16px 20px 0;">
+    <div style="font-size:12px;font-weight:bold;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
+      📦 New Assets Awaiting Approval
+    </div>
+    {% for a in pending_assets %}
+    <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-weight:bold;font-size:14px;color:#1E293B;">{{ a.asset_id }} — {{ a.asset_name }}</div>
+          <div style="font-size:12px;color:#64748B;margin-top:3px;">
+            Serial: <strong>{{ a.serial_number }}</strong> &nbsp;·&nbsp;
+            Type: {{ a.asset_type }} &nbsp;·&nbsp;
+            Model: {{ a.model or '—' }}
+          </div>
+          <div style="font-size:12px;color:#64748B;margin-top:2px;">
+            Purchase: {{ a.purchase_date }} &nbsp;·&nbsp;
+            Value: €{{ "{:,.2f}".format(a.purchase_value or 0) }} &nbsp;·&nbsp;
+            Dep: {{ a.dep_method }}, {{ a.useful_life_months }}mo &nbsp;·&nbsp;
+            Location: {{ a.current_location }}
+          </div>
+          <div style="font-size:12px;color:#94A3B8;margin-top:2px;">
+            Submitted by {{ a.responsible }} &nbsp;·&nbsp; {{ (a.created_at|string)[:10] if a.created_at else '' }}
+          </div>
+          {% if a.notes %}<div style="font-size:12px;color:#475569;margin-top:4px;font-style:italic;">📝 {{ a.notes }}</div>{% endif %}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+          {% if is_approver %}
+          <form method="post" action="/approve/asset/{{ a.id }}" style="display:inline;">
+            <input type="hidden" name="action" value="approve">
+            <button type="submit" class="btn btn-success btn-sm">✅ Approve</button>
+          </form>
+          <form method="post" action="/approve/asset/{{ a.id }}" style="display:inline;" onsubmit="return confirmReject(this)">
+            <input type="hidden" name="action" value="reject">
+            <input type="hidden" name="reason" class="reject-reason" value="">
+            <button type="submit" class="btn btn-danger btn-sm">❌ Reject</button>
+          </form>
+          {% else %}
+          <span style="font-size:12px;color:#94A3B8;font-style:italic;">Yuki or Lo to action</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if pending_txns %}
+  <div style="padding:16px 20px 0;">
+    <div style="font-size:12px;font-weight:bold;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
+      💼 Sales &amp; Disposals Awaiting Approval
+    </div>
+    {% for t in pending_txns %}
+    <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-weight:bold;font-size:14px;color:#1E293B;">
+            <span style="color:#DC2626;">{{ t.tx_type }}</span> — {{ t.asset_id }}: {{ t.asset_name }}
+          </div>
+          <div style="font-size:12px;color:#64748B;margin-top:3px;">
+            Serial: <strong>{{ t.serial_number }}</strong> &nbsp;·&nbsp;
+            Date: {{ t.tx_date }} &nbsp;·&nbsp;
+            Book Value at Tx: <strong>€{{ "{:,.2f}".format(t.book_value_at_tx or 0) }}</strong>
+            {% if t.sale_price %}&nbsp;·&nbsp; Sale Price: <strong>€{{ "{:,.2f}".format(t.sale_price) }}</strong>{% endif %}
+          </div>
+          {% if t.buyer %}<div style="font-size:12px;color:#64748B;margin-top:2px;">Buyer: {{ t.buyer }} {% if t.buyer_contact %}· {{ t.buyer_contact }}{% endif %}</div>{% endif %}
+          {% if t.invoice_ref %}<div style="font-size:12px;color:#64748B;margin-top:2px;">Invoice: {{ t.invoice_ref }}</div>{% endif %}
+          <div style="font-size:12px;color:#94A3B8;margin-top:2px;">Submitted by {{ t.created_by }} &nbsp;·&nbsp; {{ (t.created_at|string)[:10] if t.created_at else '' }}</div>
+          {% if t.notes %}<div style="font-size:12px;color:#475569;margin-top:4px;font-style:italic;">📝 {{ t.notes }}</div>{% endif %}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+          {% if is_approver %}
+          <form method="post" action="/approve/transaction/{{ t.id }}" style="display:inline;">
+            <input type="hidden" name="action" value="approve">
+            <button type="submit" class="btn btn-success btn-sm">✅ Approve</button>
+          </form>
+          <form method="post" action="/approve/transaction/{{ t.id }}" style="display:inline;" onsubmit="return confirmReject(this)">
+            <input type="hidden" name="action" value="reject">
+            <input type="hidden" name="reason" class="reject-reason" value="">
+            <button type="submit" class="btn btn-danger btn-sm">❌ Reject</button>
+          </form>
+          {% else %}
+          <span style="font-size:12px;color:#94A3B8;font-style:italic;">Yuki or Lo to action</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div style="padding:12px 20px 16px;"></div>
+</div>
+
+<script>
+function confirmReject(form) {
+  const reason = prompt("Reason for rejection (optional):");
+  if (reason === null) return false; // cancelled
+  form.querySelector('.reject-reason').value = reason || '';
+  return true;
+}
+</script>
+{% endif %}
+
+
+{# ── Key metrics ─────────────────────────────────────────────── #}
+<div class="metrics">
+  <div class="metric"><div class="metric-value">{{ assets|length }}</div><div class="metric-label">Total Assets</div></div>
+  <div class="metric"><div class="metric-value">{{ assets|selectattr("asset_type","equalto","Demo Unit")|list|length }}</div><div class="metric-label">Demo Units</div></div>
+  <div class="metric"><div class="metric-value">{{ assets|selectattr("asset_type","equalto","AD Device")|list|length }}</div><div class="metric-label">AD Devices</div></div>
+  <div class="metric"><div class="metric-value">{{ assets|selectattr("status","equalto","With Customer")|list|length }}</div><div class="metric-label">With Customers</div></div>
+  <div class="metric amber"><div class="metric-value">€{{ "{:,.0f}".format(total_purchase) }}</div><div class="metric-label">Total Purchase Value</div></div>
+  <div class="metric green"><div class="metric-value">€{{ "{:,.0f}".format(total_book) }}</div><div class="metric-label">Total Book Value</div></div>
+  <div class="metric red"><div class="metric-value">€{{ "{:,.0f}".format(total_monthly) }}</div><div class="metric-label">Monthly Depreciation</div></div>
+</div>
+
+{# ── Summary panels ───────────────────────────────────────────── #}
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+  <div class="card">
+    <div class="card-title">Assets by Type</div>
+    {% for type, count in by_type.items() %}
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F1F5F9;">
+      <span style="font-size:13px;">{{ type or "Unknown" }}</span>
+      <span style="font-weight:bold;color:#1F7BC1;">{{ count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="card">
+    <div class="card-title">Assets by Status</div>
+    {% for status, count in by_status.items() %}
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F1F5F9;">
+      <span style="font-size:13px;">{{ status or "Unknown" }}</span>
+      <span style="font-weight:bold;color:#1F7BC1;">{{ count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="card">
+    <div class="card-title">Assets by Location</div>
+    {% for loc, count in by_loc.items() if count > 0 %}
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F1F5F9;">
+      <span style="font-size:13px;">{{ loc or "Unknown" }}</span>
+      <span style="font-weight:bold;color:#1F7BC1;">{{ count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── Asset overview table ─────────────────────────────────────── #}
+<div class="card">
+  <div class="card-title">All Assets — Quick Overview</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Asset ID</th><th>Serial Number</th><th>Name</th><th>Type</th>
+        <th>Location</th><th>Status</th><th>Book Value</th><th>Monthly Dep.</th><th>Dep %</th>
+      </tr></thead>
+      <tbody>
+      {% for a in assets %}
+      {% set dep_pct = ((a.purchase_value|float - a.book_value|float) / a.purchase_value|float * 100) if a.purchase_value else 0 %}
+      <tr>
+        <td><a href="/assets/{{ a.asset_id }}" style="color:#1F7BC1;font-weight:600;">{{ a.asset_id }}</a></td>
+        <td style="font-family:monospace;font-size:12px;">{{ a.serial_number }}</td>
+        <td>{{ a.asset_name }}</td>
+        <td><span class="badge {% if a.asset_type=='Demo Unit' %}badge-demo{% elif a.asset_type=='AD Device' %}badge-it{% elif a.asset_type=='Laptop' %}badge-laptop{% else %}badge-display{% endif %}">{{ a.asset_type }}</span></td>
+        <td>{{ a.current_location }}</td>
+        <td><span class="badge {% if a.status=='Active' %}badge-active{% elif a.status=='With Customer' %}badge-customer{% elif a.status=='In Storage' %}badge-storage{% elif a.status=='In Transit' %}badge-transit{% elif a.status=='Sold' %}badge-sold{% elif a.status=='Disposed' %}badge-disposed{% else %}badge-repair{% endif %}">{{ a.status }}</span></td>
+        <td style="font-weight:600;color:#16A34A;">€{{ "{:,.2f}".format(a.book_value) }}</td>
+        <td style="color:#D97706;">€{{ "{:,.2f}".format(a.monthly) }}/mo</td>
+        <td style="width:100px;">
+          <div style="font-size:11px;color:#64748B;margin-bottom:3px;">{{ "{:.0f}".format(dep_pct) }}%</div>
+          <div class="dep-bar-wrap"><div class="dep-bar {% if dep_pct>80 %}danger{% elif dep_pct>50 %}warn{% endif %}" style="width:{{ [dep_pct,100]|min }}%;"></div></div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

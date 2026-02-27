@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.asset_id }} — {{ asset.asset_name }}{% endblock %}
+{% block content %}
+
+<div class="page-title">
+  📦 {{ asset.asset_name }}
+  <span class="sub">{{ asset.asset_id }} · {{ asset.serial_number }}</span>
+  <a href="/assets/{{ asset.asset_id }}/edit" class="btn btn-secondary btn-sm" style="margin-left:auto;">✏️ Edit</a>
+  <a href="/assets" class="btn btn-secondary btn-sm">← Back</a>
+</div>
+
+{% set dep_pct = ((asset.purchase_value|float - asset.book_value|float) / asset.purchase_value|float * 100) if asset.purchase_value else 0 %}
+
+<!-- Key info + depreciation -->
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+  <div class="card">
+    <div class="card-title">Asset Information</div>
+    <div class="detail-grid">
+      <div class="detail-item"><div class="lbl">Asset ID</div><div class="val">{{ asset.asset_id }}</div></div>
+      <div class="detail-item"><div class="lbl">Serial Number</div><div class="val" style="font-family:monospace;">{{ asset.serial_number }}</div></div>
+      <div class="detail-item"><div class="lbl">Type</div><div class="val">
+        <span class="badge {% if asset.asset_type=='Demo Unit' %}badge-demo{% elif asset.asset_type=='AD Device' %}badge-it{% elif asset.asset_type=='Laptop' %}badge-laptop{% else %}badge-display{% endif %}">{{ asset.asset_type }}</span>
+      </div></div>
+      <div class="detail-item"><div class="lbl">Model</div><div class="val">{{ asset.model or '—' }}</div></div>
+      <div class="detail-item"><div class="lbl">Status</div><div class="val">
+        <span class="badge {% if asset.status=='Active' %}badge-active{% elif asset.status=='With Customer' %}badge-customer{% elif asset.status=='In Storage' %}badge-storage{% elif asset.status=='In Transit' %}badge-transit{% elif asset.status=='Sold' %}badge-sold{% elif asset.status=='Disposed' %}badge-disposed{% else %}badge-repair{% endif %}">{{ asset.status }}</span>
+      </div></div>
+      <div class="detail-item"><div class="lbl">Current Location</div><div class="val">📍 {{ asset.current_location or '—' }}</div></div>
+      <div class="detail-item"><div class="lbl">Purchase Date</div><div class="val">{{ asset.purchase_date or '—' }}</div></div>
+      <div class="detail-item"><div class="lbl">Purchase Value</div><div class="val">{{ asset.currency }} {{ "{:,.2f}".format(asset.purchase_value or 0) }}</div></div>
+      <div class="detail-item"><div class="lbl">Responsible</div><div class="val">👤 {{ asset.responsible or '—' }}</div></div>
+      <div class="detail-item"><div class="lbl">Dep. Method</div><div class="val">{{ asset.dep_method }}</div></div>
+      <div class="detail-item"><div class="lbl">Useful Life</div><div class="val">{{ asset.useful_life_months }} months</div></div>
+      <div class="detail-item"><div class="lbl">Months Elapsed</div><div class="val">{{ asset.months_elapsed }} mo</div></div>
+    </div>
+    {% if asset.notes %}
+    <div style="margin-top:14px;padding:10px 12px;background:#F8FAFC;border-radius:7px;font-size:13px;color:#475569;">📝 {{ asset.notes }}</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">💰 Depreciation</div>
+    <div style="text-align:center;padding:10px 0 16px;">
+      <div style="font-size:32px;font-weight:bold;color:#16A34A;">€{{ "{:,.2f}".format(asset.book_value) }}</div>
+      <div style="font-size:12px;color:#64748B;margin-top:2px;">Current Book Value</div>
+    </div>
+    <div class="dep-bar-wrap" style="margin-bottom:16px;">
+      <div class="dep-bar {% if dep_pct > 80 %}danger{% elif dep_pct > 50 %}warn{% endif %}" style="width:{{ [dep_pct,100]|min }}%;"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:18px;font-weight:bold;color:#D97706;">€{{ "{:,.2f}".format(asset.monthly) }}</div>
+        <div style="font-size:11px;color:#94A3B8;">Monthly Dep.</div>
+      </div>
+      <div style="background:#F8FAFC;border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:18px;font-weight:bold;color:#DC2626;">€{{ "{:,.2f}".format(asset.accumulated) }}</div>
+        <div style="font-size:11px;color:#94A3B8;">Accumulated</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;text-align:center;font-size:12px;color:#64748B;">
+      {{ "{:.1f}".format(dep_pct) }}% depreciated
+      {% if asset.fully_dep %}<span class="badge badge-sold" style="margin-left:6px;">Fully Depreciated</span>{% endif %}
+    </div>
+
+    {% if asset.status not in ('Sold','Disposed') %}
+    <!-- Quick: Record Sale/Disposal -->
+    <div class="section-hdr" style="margin-top:20px;">Record Sale / Disposal</div>
+    <form method="post" action="/assets/{{ asset.asset_id }}/transaction/add">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="form-group">
+          <label>Type</label>
+          <select name="tx_type">{% for t in tx_types %}<option>{{ t }}</option>{% endfor %}</select>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" name="tx_date" value="{{ '' }}">
+        </div>
+        <div class="form-group">
+          <label>Sale Price (€)</label>
+          <input type="number" step="0.01" name="sale_price" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>Invoice / Ref #</label>
+          <input name="invoice_ref" placeholder="INV-2025-001">
+        </div>
+        <div class="form-group full" style="grid-column:1/-1;">
+          <label>Buyer / Disposed To</label>
+          <input name="buyer" placeholder="Company name">
+        </div>
+        <div class="form-group full" style="grid-column:1/-1;">
+          <label>Buyer Contact / Address</label>
+          <input name="buyer_contact" placeholder="Contact details">
+        </div>
+        <div class="form-group full" style="grid-column:1/-1;">
+          <label>Notes</label>
+          <input name="notes" placeholder="Optional notes">
+        </div>
+      </div>
+      {# ── Approval option ── #}
+      <div style="margin-top:12px;padding:12px 14px;border-radius:8px;border:1.5px solid #FED7AA;background:#FFF7ED;display:flex;align-items:center;gap:12px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:bold;color:#92400E;flex:0 0 auto;">
+          <input type="checkbox" name="send_approval" value="yes" style="width:16px;height:16px;cursor:pointer;">
+          📨 Submit for Approval now
+        </label>
+        <span style="font-size:12px;color:#78350F;">
+          Check to send immediately to Yuki &amp; Lo. Leave unchecked to save as draft and submit later.
+        </span>
+      </div>
+      <button type="submit" class="btn btn-danger btn-sm" style="margin-top:10px;">💼 Record Transaction</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Location History -->
+<div class="card">
+  <div class="section-hdr">
+    📍 Location History
+    <span style="font-size:12px;color:#94A3B8;">{{ lh|length }} record(s)</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>From</th><th>To</th><th>Location</th><th>Country</th><th>Customer / Contact</th><th>Purpose</th><th>Shipped By</th><th>Notes</th><th>Logged By</th></tr></thead>
+      <tbody>
+      {% for h in lh %}
+      <tr>
+        <td style="font-size:12px;">{{ h.date_from or '—' }}</td>
+        <td style="font-size:12px;">{{ h.date_to or '<span style="color:#16A34A;font-weight:600;">Now</span>'|safe }}</td>
+        <td style="font-weight:500;">{{ h.location }}</td>
+        <td style="font-size:12px;color:#64748B;">{{ h.country }}</td>
+        <td>{{ h.customer }}</td>
+        <td style="font-size:12px;">{{ h.purpose }}</td>
+        <td style="font-size:12px;color:#64748B;">{{ h.shipped_by }}</td>
+        <td style="font-size:12px;color:#64748B;">{{ h.notes }}</td>
+        <td style="font-size:12px;color:#94A3B8;">{{ h.created_by }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" style="text-align:center;color:#94A3B8;padding:20px;">No location history yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if asset.status not in ('Sold','Disposed') %}
+  <div class="section-hdr" style="margin-top:20px;">+ Log New Location</div>
+  <form method="post" action="/assets/{{ asset.asset_id }}/location/add">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Date From *</label>
+        <input type="date" name="date_from" required>
+      </div>
+      <div class="form-group">
+        <label>Date To (leave blank if ongoing)</label>
+        <input type="date" name="date_to">
+      </div>
+      <div class="form-group">
+        <label>Location *</label>
+        <select name="location" required>
+          <option value="">— Select —</option>
+          {% for l in locations %}<option>{{ l }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Country</label>
+        <input name="country" placeholder="Netherlands">
+      </div>
+      <div class="form-group">
+        <label>Customer / Contact</label>
+        <input name="customer" placeholder="Company name">
+      </div>
+      <div class="form-group">
+        <label>Purpose</label>
+        <input name="purpose" placeholder="Demo trial, Storage, etc.">
+      </div>
+      <div class="form-group">
+        <label>Shipped By</label>
+        <input name="shipped_by" placeholder="Name">
+      </div>
+      <div class="form-group">
+        <label>Update Status To</label>
+        <select name="status">
+          {% for s in ['Active','With Customer','In Storage','In Transit','Under Repair'] %}
+          <option value="{{ s }}" {{ 'selected' if s==asset.status }}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Notes</label>
+        <input name="notes" placeholder="Optional notes">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm" style="margin-top:10px;">📍 Log Movement</button>
+  </form>
+  {% endif %}
+</div>
+
+<!-- Documents -->
+<div class="card">
+  <div class="section-hdr">
+    📄 Documents & Contracts
+    <span style="font-size:12px;color:#94A3B8;">{{ docs|length }} file(s)</span>
+  </div>
+  {% if docs %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Type</th><th>Title</th><th>Date</th><th>Description</th><th>Uploaded By</th><th>File</th></tr></thead>
+      <tbody>
+      {% for d in docs %}
+      <tr>
+        <td><span class="badge badge-storage">{{ d.doc_type }}</span></td>
+        <td style="font-weight:500;">{{ d.doc_title }}</td>
+        <td style="font-size:12px;">{{ d.doc_date or '—' }}</td>
+        <td style="font-size:12px;color:#64748B;">{{ d.description }}</td>
+        <td style="font-size:12px;color:#94A3B8;">{{ d.uploaded_by }}</td>
+        <td>
+          {% if d.download_url %}
+          <a href="/documents/{{ d.id }}/download" target="_blank" class="btn btn-primary btn-sm">⬇ Open</a>
+          {% else %}<span style="color:#CBD5E1;font-size:12px;">No file</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div class="section-hdr" style="margin-top:20px;">+ Upload Document</div>
+  <form method="post" action="/assets/{{ asset.asset_id }}/document/add" enctype="multipart/form-data">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Document Type</label>
+        <select name="doc_type">{% for t in doc_types %}<option>{{ t }}</option>{% endfor %}</select>
+      </div>
+      <div class="form-group">
+        <label>Title *</label>
+        <input name="doc_title" required placeholder="Demo Contract - Customer Name">
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" name="doc_date">
+      </div>
+      <div class="form-group">
+        <label>File (PDF, JPG, PNG, DOCX…)</label>
+        <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.gif,.docx,.xlsx,.msg,.zip">
+      </div>
+      <div class="form-group full">
+        <label>Description / Notes</label>
+        <input name="description" placeholder="Brief description">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-success btn-sm" style="margin-top:10px;">📎 Upload Document</button>
+  </form>
+</div>
+
+<!-- Transaction History -->
+{% if txns %}
+<div class="card">
+  <div class="section-hdr">💼 Sales & Disposal History</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Type</th><th>Date</th><th>Book Value at Tx</th><th>Sale Price</th><th>Gain / Loss</th><th>Buyer</th><th>Invoice Ref</th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>
+      {% for t in txns %}
+      {% set gl = (t.sale_price or 0) - (t.book_value_at_tx or 0) %}
+      <tr style="{% if t.approval_status=='draft' %}background:#F8FAFC!important;{% elif t.approval_status=='pending' %}background:#FFFBEB!important;{% elif t.approval_status=='rejected' %}background:#FFF1F2!important;{% endif %}">
+        <td><span class="badge {% if t.tx_type=='Sale' %}badge-customer{% elif t.tx_type=='Disposal' %}badge-disposed{% else %}badge-sold{% endif %}">{{ t.tx_type }}</span></td>
+        <td>{{ t.tx_date }}</td>
+        <td>€{{ "{:,.2f}".format(t.book_value_at_tx or 0) }}</td>
+        <td>{% if t.sale_price %}€{{ "{:,.2f}".format(t.sale_price) }}{% else %}—{% endif %}</td>
+        <td>{% if t.tx_type=='Sale' %}<span class="{{ 'gain' if gl >= 0 else 'loss' }}">{{ '+' if gl >= 0 else '' }}€{{ "{:,.2f}".format(gl) }}</span>{% else %}—{% endif %}</td>
+        <td>{{ t.buyer or '—' }}</td>
+        <td style="font-size:12px;">{{ t.invoice_ref or '—' }}</td>
+        <td>
+          {% if t.approval_status == 'draft' %}
+            <span class="badge badge-storage">📝 Draft</span>
+            <form method="post" action="/transaction/{{ t.id }}/submit" style="display:inline;margin-left:6px;">
+              <button type="submit" class="btn btn-primary btn-sm" style="font-size:11px;padding:3px 9px;">
+                📨 Submit for Approval
+              </button>
+            </form>
+          {% elif t.approval_status == 'pending' %}
+            <span class="badge" style="background:#FEF3C7;color:#D97706;">⏳ Pending Yuki/Lo</span>
+          {% elif t.approval_status == 'approved' %}
+            <span class="badge badge-active">✅ Approved</span>
+            {% if t.approved_by %}<div style="font-size:11px;color:#94A3B8;margin-top:2px;">by {{ t.approved_by }}</div>{% endif %}
+          {% elif t.approval_status == 'rejected' %}
+            <span class="badge badge-disposed" title="{{ t.reject_reason or '' }}">❌ Rejected</span>
+            {% if t.reject_reason %}<div style="font-size:11px;color:#DC2626;margin-top:2px;">{{ t.reject_reason }}</div>{% endif %}
+          {% endif %}
+        </td>
+        <td style="font-size:12px;color:#64748B;">{{ t.notes }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

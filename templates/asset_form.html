@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit" if mode=="edit" else "New" }} Asset{% endblock %}
+{% block content %}
+<div class="page-title">
+  {{ "✏️ Edit Asset" if mode=="edit" else "➕ Add New Asset" }}
+  <a href="{{ '/assets/'+asset.asset_id if mode=='edit' else '/assets' }}" class="btn btn-secondary btn-sm">← Back</a>
+</div>
+
+<div class="card">
+  <form method="post" id="assetForm">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Asset ID *</label>
+        <input name="asset_id" value="{{ asset.asset_id if asset else next_id }}" required {% if mode=='edit' %}readonly style="background:#E2E8F0;color:#64748B;"{% endif %}>
+      </div>
+      <div class="form-group">
+        <label>Serial Number *</label>
+        <input name="serial_number" value="{{ asset.serial_number if asset else '' }}" required placeholder="SN-WHILL-0001">
+      </div>
+      <div class="form-group">
+        <label>Asset Name *</label>
+        <input name="asset_name" value="{{ asset.asset_name if asset else '' }}" required placeholder="Model C Demo Unit 1">
+      </div>
+      <div class="form-group">
+        <label>Asset Type</label>
+        <select name="asset_type" id="assetTypeSelect" onchange="updateApprovalDefault()">
+          {% for t in asset_types %}<option value="{{ t }}" {{ 'selected' if asset and asset.asset_type==t }}>{{ t }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Model</label>
+        <input name="model" value="{{ asset.model if asset else '' }}" placeholder="WHILL Model C">
+      </div>
+      <div class="form-group">
+        <label>Purchase Date</label>
+        <input type="date" name="purchase_date" value="{{ asset.purchase_date if asset else '' }}">
+      </div>
+      <div class="form-group">
+        <label>Purchase Value</label>
+        <input type="number" step="0.01" name="purchase_value" value="{{ asset.purchase_value if asset else '' }}" placeholder="8500.00">
+      </div>
+      <div class="form-group">
+        <label>Currency</label>
+        <select name="currency">
+          {% for c in currencies %}<option value="{{ c }}" {{ 'selected' if asset and asset.currency==c else ('selected' if not asset and c=='EUR') }}>{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Depreciation Method</label>
+        <select name="dep_method">
+          {% for m in dep_methods %}<option value="{{ m }}" {{ 'selected' if asset and asset.dep_method==m }}>{{ m }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Useful Life (months)</label>
+        <input type="number" name="useful_life_months" value="{{ asset.useful_life_months if asset else 60 }}" placeholder="60">
+      </div>
+      <div class="form-group">
+        <label>Current Location</label>
+        <select name="current_location">
+          <option value="">— Select —</option>
+          {% for l in locations %}<option value="{{ l }}" {{ 'selected' if asset and asset.current_location==l }}>{{ l }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select name="status">
+          {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if asset and asset.status==s else ('selected' if not asset and s=='Active') }}>{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Responsible Person</label>
+        <select name="responsible">
+          {% for u in users %}<option value="{{ u }}" {{ 'selected' if asset and asset.responsible==u else ('selected' if not asset and u==session.user) }}>{{ u }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Notes</label>
+        <textarea name="notes" rows="3" placeholder="Any additional notes…">{{ asset.notes if asset else '' }}</textarea>
+      </div>
+    </div>
+
+    {% if mode == "new" %}
+    {# ── Approval request section ── #}
+    <div style="margin-top:20px;padding:16px;border-radius:10px;border:2px solid #FED7AA;background:#FFF7ED;">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="flex:1;">
+          <div style="font-weight:bold;font-size:14px;color:#92400E;margin-bottom:4px;">📨 Submit for Approval</div>
+          <div style="font-size:13px;color:#78350F;">
+            Check this box to send an approval request to <strong>Yuki and Lo</strong> before the asset becomes active.
+            <span id="approvalHint" style="color:#1F7BC1;font-weight:600;"></span>
+          </div>
+          <div style="font-size:12px;color:#9A7440;margin-top:4px;">
+            Leave unchecked to add the asset directly without approval (e.g. for internal equipment).
+          </div>
+        </div>
+        <div style="flex-shrink:0;padding-top:2px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:bold;color:#92400E;">
+            <input type="checkbox" name="send_approval" value="yes" id="sendApprovalCheck"
+                   style="width:18px;height:18px;cursor:pointer;">
+            Request approval
+          </label>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div style="margin-top:20px;display:flex;gap:10px;">
+      <button type="submit" class="btn btn-primary">{{ "💾 Save Changes" if mode=="edit" else "➕ Add Asset" }}</button>
+      <a href="{{ '/assets/'+asset.asset_id if mode=='edit' else '/assets' }}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+function updateApprovalDefault() {
+  const typeSelect = document.getElementById('assetTypeSelect');
+  const hint       = document.getElementById('approvalHint');
+  if (!hint) return;
+  // Just show a hint for Demo Units, but never auto-check
+  if (typeSelect.value === 'Demo Unit') {
+    hint.textContent = ' — Demo Units usually require approval.';
+  } else {
+    hint.textContent = '';
+  }
+}
+// Set default on page load
+document.addEventListener('DOMContentLoaded', updateApprovalDefault);
+</script>
+{% endblock %}
